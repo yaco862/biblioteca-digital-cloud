@@ -5,6 +5,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Biblioteca Digital - Sistema Cloud</title>
     <link rel="stylesheet" href="styles.css">
+<script>
+        // Detectar entorno desde el hostname
+        document.addEventListener('DOMContentLoaded', () => {
+            const hostname = window.location.hostname;
+            let env = 'Producción';
+            let emoji = '🔴';
+            let color = '#ef4444';
+            
+            if (hostname.includes('-dev') || hostname.includes('dev.')) {
+                env = 'Development';
+                emoji = '🟢';
+                color = '#10b981';
+            } else if (hostname.includes('-staging') || hostname.includes('staging.')) {
+                env = 'Staging';
+                emoji = '🟡';
+                color = '#f59e0b';
+            }
+            
+            const envElement = document.getElementById('entorno');
+            if (envElement) {
+                envElement.textContent = emoji + ' ' + env;
+                envElement.style.color = color;
+                envElement.style.fontWeight = 'bold';
+            }
+        });
+    </script>
+</head>
 </head>
 <body>
     <header class="header">

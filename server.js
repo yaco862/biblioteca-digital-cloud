@@ -7,80 +7,36 @@ const multer = require('multer');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Configurar PostgreSQL (SSL activado siempre)
+// Configuración de entorno
+const ENVIRONMENT = process.env.NODE_ENV || 'production';
+const TABLE_PREFIX = ENVIRONMENT === 'production' ? 'prod' : ENVIRONMENT;
+const TABLE_NAME = `${TABLE_PREFIX}_libros`;
+
+console.log(`🌍 Entorno: ${ENVIRONMENT}`);
+console.log(`📊 Usando tabla: ${TABLE_NAME}`);
+
+// Configurar PostgreSQL
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: {
         rejectUnauthorized: false
     }
 });
-
 // Verificar conexión a la base de datos
-// Verificar conexión e inicializar base de datos automáticamente
-async function initializeDatabase() {
-    const client = await pool.connect();
-    
-    try {
-        console.log('🔄 Verificando conexión a PostgreSQL...');
-        
-        // Crear tabla si no existe
-        await client.query(`
-            CREATE TABLE IF NOT EXISTS libros (
-                id SERIAL PRIMARY KEY,
-                titulo VARCHAR(255) NOT NULL,
-                autor VARCHAR(255) NOT NULL,
-                año INTEGER NOT NULL,
-                genero VARCHAR(100) NOT NULL,
-                isbn VARCHAR(20),
-                imagen_url TEXT,
-                disponible BOOLEAN DEFAULT true,
-                fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        `);
-        
-        console.log('✅ Tabla "libros" verificada/creada');
-        
-        // Verificar si hay datos
-        const result = await client.query('SELECT COUNT(*) FROM libros');
-        const count = parseInt(result.rows[0].count);
-        
-        if (count === 0) {
-            console.log('📚 Base de datos vacía, insertando libros de ejemplo...');
-            
-            await client.query(`
-                INSERT INTO libros (titulo, autor, año, genero, isbn, disponible) VALUES
-                ('Cien años de soledad', 'Gabriel García Márquez', 1967, 'Ficción', '978-0307474728', true),
-                ('Don Quijote de la Mancha', 'Miguel de Cervantes', 1605, 'Clásico', '978-8424936464', true),
-                ('1984', 'George Orwell', 1949, 'Ciencia Ficción', '978-0451524935', false),
-                ('El Principito', 'Antoine de Saint-Exupéry', 1943, 'Infantil', '978-0156012195', true)
-            `);
-            
-            console.log('✅ Libros de ejemplo insertados correctamente');
-        } else {
-            console.log(`ℹ️  Base de datos contiene ${count} libro(s)`);
-        }
-        
-        console.log('✅ Base de datos inicializada exitosamente');
-        
-    } catch (error) {
-        console.error('❌ Error al inicializar base de datos:', error);
-        throw error;
-    } finally {
-        client.release();
+pool.connect((err, client, release) => {
+    if (err) {
+        console.error('❌ Error al conectar con PostgreSQL:', err.stack);
+    } else {
+        console.log('✅ Conectado a PostgreSQL exitosamente');
+        release();
     }
-}
-
-// Ejecutar inicialización al arrancar
-initializeDatabase().catch(err => {
-    console.error('💥 Error fatal en inicialización:', err);
-    process.exit(1);
 });
-// Configurar Multer para subida de archivos (en memoria)
+
+// Configurar Multer para subida de archivos (simulado - en memoria)
 const storage = multer.memoryStorage();
 const upload = multer({ 
     storage: storage,
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB máximo
+    limits: { fileSize: 5 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
         if (file.mimetype.startsWith('image/')) {
             cb(null, true);
@@ -103,31 +59,53 @@ app.get('/', (req, res) => {
 // API: Obtener todos los libros
 app.get('/api/libros', async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM libros ORDER BY id ASC');
+        const result = await pool.query(
+            `SELECT * FROM ${TABLE_NAME} ORDER BY id ASC`
+        );
+        
         const disponibles = result.rows.filter(l => l.disponible).length;
+        
         res.json({
             success: true,
             total: result.rows.length,
-            disponibles,
+            disponibles: disponibles,
             data: result.rows
         });
     } catch (error) {
         console.error('Error al obtener libros:', error);
-        res.status(500).json({ success: false, error: 'Error al obtener libros' });
+        res.status(500).json({
+            success: false,
+            error: 'Error al obtener libros'
+        });
     }
 });
 
 // API: Obtener un libro por ID
 app.get('/api/libros/:id', async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM libros WHERE id = $1', [req.params.id]);
-        if (!result.rows.length) {
-            return res.status(404).json({ success: false, error: 'Libro no encontrado' });
+        const { id } = req.params;
+        const result = await pool.query(
+            `SELECT * FROM ${TABLE_NAME} WHERE id = $1`,
+            [id]
+        );
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Libro no encontrado'
+            });
         }
-        res.json({ success: true, data: result.rows[0] });
+        
+        res.json({
+            success: true,
+            data: result.rows[0]
+        });
     } catch (error) {
         console.error('Error al obtener libro:', error);
-        res.status(500).json({ success: false, error: 'Error al obtener libro' });
+        res.status(500).json({
+            success: false,
+            error: 'Error al obtener libro'
+        });
     }
 });
 
@@ -135,54 +113,102 @@ app.get('/api/libros/:id', async (req, res) => {
 app.post('/api/libros', async (req, res) => {
     try {
         const { titulo, autor, año, genero, isbn } = req.body;
+        
         if (!titulo || !autor || !año || !genero) {
-            return res.status(400).json({ success: false, error: 'Faltan campos requeridos' });
+            return res.status(400).json({
+                success: false,
+                error: 'Faltan campos requeridos'
+            });
         }
+        
         const result = await pool.query(
-            `INSERT INTO libros (titulo, autor, año, genero, isbn, disponible) 
-             VALUES ($1, $2, $3, $4, $5, true) RETURNING *`,
+            `INSERT INTO ${TABLE_NAME} (titulo, autor, año, genero, isbn, disponible) 
+             VALUES ($1, $2, $3, $4, $5, true) 
+             RETURNING *`,
             [titulo, autor, parseInt(año), genero, isbn || null]
         );
-        res.status(201).json({ success: true, message: 'Libro agregado exitosamente', data: result.rows[0] });
+        
+        res.status(201).json({
+            success: true,
+            message: 'Libro agregado exitosamente',
+            data: result.rows[0]
+        });
     } catch (error) {
         console.error('Error al agregar libro:', error);
-        res.status(500).json({ success: false, error: 'Error al agregar libro' });
+        res.status(500).json({
+            success: false,
+            error: 'Error al agregar libro'
+        });
     }
 });
 
-// API: Actualizar disponibilidad
+// API: Actualizar disponibilidad de un libro
 app.put('/api/libros/:id', async (req, res) => {
     try {
+        const { id } = req.params;
+        const { disponible } = req.body;
+        
         const result = await pool.query(
-            `UPDATE libros SET disponible = $1, fecha_actualizacion = NOW() 
-             WHERE id = $2 RETURNING *`,
-            [req.body.disponible, req.params.id]
+            `UPDATE ${TABLE_NAME} 
+             SET disponible = $1, fecha_actualizacion = CURRENT_TIMESTAMP 
+             WHERE id = $2 
+             RETURNING *`,
+            [disponible, id]
         );
-        if (!result.rows.length) {
-            return res.status(404).json({ success: false, error: 'Libro no encontrado' });
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Libro no encontrado'
+            });
         }
-        res.json({ success: true, message: 'Estado actualizado correctamente', data: result.rows[0] });
+        
+        res.json({
+            success: true,
+            message: 'Estado actualizado correctamente',
+            data: result.rows[0]
+        });
     } catch (error) {
         console.error('Error al actualizar libro:', error);
-        res.status(500).json({ success: false, error: 'Error al actualizar libro' });
+        res.status(500).json({
+            success: false,
+            error: 'Error al actualizar libro'
+        });
     }
 });
 
-// API: Eliminar libro
+// API: Eliminar un libro
 app.delete('/api/libros/:id', async (req, res) => {
     try {
-        const result = await pool.query('DELETE FROM libros WHERE id = $1 RETURNING *', [req.params.id]);
-        if (!result.rows.length) {
-            return res.status(404).json({ success: false, error: 'Libro no encontrado' });
+        const { id } = req.params;
+        
+        const result = await pool.query(
+            `DELETE FROM ${TABLE_NAME} WHERE id = $1 RETURNING *`,
+            [id]
+        );
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Libro no encontrado'
+            });
         }
-        res.json({ success: true, message: 'Libro eliminado correctamente', data: result.rows[0] });
+        
+        res.json({
+            success: true,
+            message: 'Libro eliminado correctamente',
+            data: result.rows[0]
+        });
     } catch (error) {
         console.error('Error al eliminar libro:', error);
-        res.status(500).json({ success: false, error: 'Error al eliminar libro' });
+        res.status(500).json({
+            success: false,
+            error: 'Error al eliminar libro'
+        });
     }
 });
 
-// API: Estadísticas
+// API: Obtener estadísticas
 app.get('/api/estadisticas', async (req, res) => {
     try {
         const result = await pool.query(`
@@ -190,21 +216,31 @@ app.get('/api/estadisticas', async (req, res) => {
                 COUNT(*) as total,
                 COUNT(*) FILTER (WHERE disponible = true) as disponibles,
                 COUNT(*) FILTER (WHERE disponible = false) as prestados
-            FROM libros
+            FROM ${TABLE_NAME}
         `);
-        const { total, disponibles, prestados } = result.rows[0];
+        
+        const stats = result.rows[0];
+        const total = parseInt(stats.total);
+        const disponibles = parseInt(stats.disponibles);
+        const prestados = parseInt(stats.prestados);
+        
         res.json({
             success: true,
             data: {
-                total: +total,
-                disponibles: +disponibles,
-                prestados: +prestados,
-                porcentajeDisponible: total > 0 ? ((disponibles / total) * 100).toFixed(1) : 0
+                total: total,
+                disponibles: disponibles,
+                prestados: prestados,
+                porcentajeDisponible: total > 0 
+                    ? ((disponibles / total) * 100).toFixed(1) 
+                    : 0
             }
         });
     } catch (error) {
         console.error('Error al obtener estadísticas:', error);
-        res.status(500).json({ success: false, error: 'Error al obtener estadísticas' });
+        res.status(500).json({
+            success: false,
+            error: 'Error al obtener estadísticas'
+        });
     }
 });
 
@@ -212,57 +248,129 @@ app.get('/api/estadisticas', async (req, res) => {
 app.get('/api/buscar', async (req, res) => {
     try {
         const termino = req.query.q || '';
-        const result = termino
-            ? await pool.query(
-                `SELECT * FROM libros WHERE LOWER(titulo) LIKE LOWER($1) 
-                 OR LOWER(autor) LIKE LOWER($1) OR LOWER(genero) LIKE LOWER($1)`,
-                [`%${termino}%`]
-              )
-            : await pool.query('SELECT * FROM libros ORDER BY id ASC');
-        res.json({ success: true, total: result.rows.length, data: result.rows });
+        
+        if (!termino) {
+            const result = await pool.query(`SELECT * FROM ${TABLE_NAME} ORDER BY id ASC`);
+            return res.json({
+                success: true,
+                data: result.rows
+            });
+        }
+        
+        const result = await pool.query(
+            `SELECT * FROM ${TABLE_NAME} 
+             WHERE LOWER(titulo) LIKE LOWER($1) 
+                OR LOWER(autor) LIKE LOWER($1) 
+                OR LOWER(genero) LIKE LOWER($1)
+             ORDER BY id ASC`,
+            [`%${termino}%`]
+        );
+        
+        res.json({
+            success: true,
+            total: result.rows.length,
+            data: result.rows
+        });
     } catch (error) {
         console.error('Error al buscar libros:', error);
-        res.status(500).json({ success: false, error: 'Error al buscar libros' });
+        res.status(500).json({
+            success: false,
+            error: 'Error al buscar libros'
+        });
     }
 });
 
 // API: Subir imagen de portada (simulado)
 app.post('/api/libros/:id/imagen', upload.single('imagen'), async (req, res) => {
     try {
-        if (!req.file) return res.status(400).json({ success: false, error: 'No se envió ninguna imagen' });
+        const { id } = req.params;
+        
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                error: 'No se envió ninguna imagen'
+            });
+        }
+        
         const imagenUrl = `https://via.placeholder.com/300x450.png?text=${encodeURIComponent(req.body.titulo || 'Libro')}`;
+        
         const result = await pool.query(
-            `UPDATE libros SET imagen_url = $1, fecha_actualizacion = NOW() WHERE id = $2 RETURNING *`,
-            [imagenUrl, req.params.id]
+            `UPDATE ${TABLE_NAME} 
+             SET imagen_url = $1, fecha_actualizacion = CURRENT_TIMESTAMP 
+             WHERE id = $2 
+             RETURNING *`,
+            [imagenUrl, id]
         );
-        if (!result.rows.length) return res.status(404).json({ success: false, error: 'Libro no encontrado' });
-        res.json({ success: true, message: 'Imagen subida correctamente', data: result.rows[0] });
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Libro no encontrado'
+            });
+        }
+        
+        res.json({
+            success: true,
+            message: 'Imagen subida correctamente',
+            data: result.rows[0]
+        });
     } catch (error) {
         console.error('Error al subir imagen:', error);
-        res.status(500).json({ success: false, error: 'Error al subir imagen' });
+        res.status(500).json({
+            success: false,
+            error: 'Error al subir imagen'
+        });
     }
 });
 
-// 404 Handler
-app.use((req, res) => res.status(404).json({ success: false, error: 'Ruta no encontrada' }));
+// Manejo de rutas no encontradas
+app.use((req, res) => {
+    res.status(404).json({
+        success: false,
+        error: 'Ruta no encontrada'
+    });
+});
 
-// Error Handler
+// Manejo de errores
 app.use((err, req, res, next) => {
     console.error('Error:', err);
-    res.status(500).json({ success: false, error: err.message || 'Error interno del servidor' });
+    res.status(500).json({
+        success: false,
+        error: err.message || 'Error interno del servidor'
+    });
 });
+
+// Determinar entorno y colores
+const ENV_COLORS = {
+    'development': '🟢 DEV',
+    'staging': '🟡 STAGING',
+    'production': '🔴 PROD'
+};
 
 // Iniciar servidor
 app.listen(PORT, () => {
     console.log('========================================');
-    console.log('🚀 SERVIDOR DE BIBLIOTECA DIGITAL v2.0');
+    console.log(`${ENV_COLORS[ENVIRONMENT] || '⚪'} BIBLIOTECA DIGITAL v2.1`);
     console.log('========================================');
     console.log(`📍 Puerto: ${PORT}`);
+    console.log(`🌍 Entorno: ${ENVIRONMENT.toUpperCase()}`);
+    console.log(`📊 Tabla: ${TABLE_NAME}`);
     console.log(`🌐 URL: http://localhost:${PORT}`);
+    console.log(`💾 Base de Datos: PostgreSQL (compartida)`);
+    console.log(`📚 API Libros: http://localhost:${PORT}/api/libros`);
+    console.log(`📊 API Stats: http://localhost:${PORT}/api/estadisticas`);
     console.log('========================================');
 });
 
-// Cierre graceful
-process.on('SIGTERM', async () => { await pool.end(); process.exit(0); });
-process.on('SIGINT', async () => { await pool.end(); process.exit(0); });
+// Manejo de cierre graceful
+process.on('SIGTERM', async () => {
+    console.log('⚠️  SIGTERM recibido, cerrando servidor...');
+    await pool.end();
+    process.exit(0);
+});
 
+process.on('SIGINT', async () => {
+    console.log('\n⚠️  SIGINT recibido, cerrando servidor...');
+    await pool.end();
+    process.exit(0);
+});
