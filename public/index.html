@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Biblioteca Digital - Sistema Cloud</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <h1>📚 Sistema de Biblioteca Digital</h1>
+                <p class="subtitle">Gestión de Libros en la Nube - Proyecto PaaS</p>
+            </div>
+            <div class="header-info">
+                <span class="badge-env">🌐 Entorno: <strong id="entorno">Producción</strong></span>
+            </div>
+        </div>
+    </header>
+
+    <section class="stats-section">
+        <div class="container">
+            <div class="stats-grid">
+                <div class="stat-card total">
+                    <div class="stat-icon">📖</div>
+                    <div class="stat-content">
+                        <div class="stat-number" id="totalLibros">0</div>
+                        <div class="stat-label">Total de Libros</div>
+                    </div>
+                </div>
+                <div class="stat-card disponibles">
+                    <div class="stat-icon">✅</div>
+                    <div class="stat-content">
+                        <div class="stat-number" id="disponibles">0</div>
+                        <div class="stat-label">Disponibles</div>
+                    </div>
+                </div>
+                <div class="stat-card prestados">
+                    <div class="stat-icon">📤</div>
+                    <div class="stat-content">
+                        <div class="stat-number" id="prestados">0</div>
+                        <div class="stat-label">Prestados</div>
+                    </div>
+                </div>
+                <div class="stat-card porcentaje">
+                    <div class="stat-icon">📊</div>
+                    <div class="stat-content">
+                        <div class="stat-number" id="porcentaje">0%</div>
+                        <div class="stat-label">Disponibilidad</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="search-section">
+        <div class="container">
+            <div class="search-box">
+                <input type="text" id="busqueda" placeholder="🔍 Buscar por título, autor o género..." />
+                <button onclick="buscarLibros()" class="btn-search">Buscar</button>
+                <button onclick="limpiarBusqueda()" class="btn-clear">Limpiar</button>
+            </div>
+        </div>
+    </section>
+
+    <section class="form-section">
+        <div class="container">
+            <div class="form-card">
+                <h2>➕ Agregar Nuevo Libro al Catálogo</h2>
+                <form id="formLibro" class="form-libro">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="titulo">
+                                <span class="label-icon">📖</span>
+                                Título del Libro *
+                            </label>
+                            <input type="text" id="titulo" required placeholder="Ej: El Principito" />
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="autor">
+                                <span class="label-icon">✍️</span>
+                                Autor *
+                            </label>
+                            <input type="text" id="autor" required placeholder="Ej: Antoine de Saint-Exupéry" />
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="año">
+                                <span class="label-icon">📅</span>
+                                Año de Publicación *
+                            </label>
+                            <input type="number" id="año" required placeholder="Ej: 1943" min="1000" max="2025" />
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="genero">
+                                <span class="label-icon">🏷️</span>
+                                Género *
+                            </label>
+                            <input type="text" id="genero" required placeholder="Ej: Ficción, Terror, Romance" />
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="isbn">
+                                <span class="label-icon">🔢</span>
+                                ISBN (Opcional)
+                            </label>
+                            <input type="text" id="isbn" placeholder="Ej: 978-0156012195" />
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn-primary">
+                        <span>➕</span> Agregar Libro a la Biblioteca
+                    </button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <section class="catalog-section">
+        <div class="container">
+            <h2 class="section-title">📚 Catálogo Completo de Libros</h2>
+            
+            <div id="mensajeVacio" class="mensaje-vacio" style="display: none;">
+                <div class="empty-icon">📭</div>
+                <h3>No hay libros en la biblioteca</h3>
+                <p>¡Agrega el primer libro usando el formulario de arriba!</p>
+            </div>
+            
+            <div id="libros" class="books-grid"></div>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <p><strong>Sistema de Biblioteca Digital</strong></p>
+                <p>Proyecto de Gestión en la Nube | Arquitectura PaaS</p>
+                <p class="tech-stack">🚀 Node.js + Express | 💾 Storage en Memoria | 🌐 Desplegado en Render</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>
