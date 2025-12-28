@@ -34,6 +34,22 @@
 </head>
 </head>
 <body>
+    <!-- Badge de Entorno -->
+    <div id="environment-badge" style="
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-weight: bold;
+        color: white;
+        z-index: 1000;
+        font-size: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        background-color: #666;
+    ">
+        Cargando...
+    </div>
     <header class="header">
         <div class="container">
             <div class="header-content">
@@ -170,6 +186,37 @@
         </div>
     </footer>
 
-    <script src="app.js"></script>
+    <script src="app.js">
+    // Cargar información del entorno
+    async function loadEnvironmentInfo() {
+        try {
+            const response = await fetch('/api/environment');
+            const result = await response.json();
+            
+            if (result.success) {
+                const badge = document.getElementById('environment-badge');
+                badge.textContent = result.data.badge_text;
+                badge.style.backgroundColor = result.data.badge_color;
+                
+                // Actualizar título de la página
+                document.title = `Biblioteca Digital - ${result.data.name}`;
+                
+                console.log('🌍 Entorno:', result.data.name);
+                console.log('📋 Tabla:', result.data.table);
+                console.log('✨ Features:', result.data.features);
+            }
+        } catch (error) {
+            console.error('Error al cargar entorno:', error);
+            document.getElementById('environment-badge').textContent = 'ERROR';
+            document.getElementById('environment-badge').style.backgroundColor = '#dc3545';
+        }
+    }
+
+    // Cargar entorno al inicio
+    loadEnvironmentInfo();
+
+    // Estado de la aplicación
+    let libros = [];
+</script>
 </body>
 </html>
