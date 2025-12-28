@@ -16,15 +16,66 @@ const pool = new Pool({
 });
 
 // Verificar conexión a la base de datos
-pool.connect((err, client, release) => {
-    if (err) {
-        console.error('❌ Error al conectar con PostgreSQL:', err.stack);
-    } else {
-        console.log('✅ Conectado a PostgreSQL exitosamente');
-        release();
+// Verificar conexión e inicializar base de datos automáticamente
+async function initializeDatabase() {
+    const client = await pool.connect();
+    
+    try {
+        console.log('🔄 Verificando conexión a PostgreSQL...');
+        
+        // Crear tabla si no existe
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS libros (
+                id SERIAL PRIMARY KEY,
+                titulo VARCHAR(255) NOT NULL,
+                autor VARCHAR(255) NOT NULL,
+                año INTEGER NOT NULL,
+                genero VARCHAR(100) NOT NULL,
+                isbn VARCHAR(20),
+                imagen_url TEXT,
+                disponible BOOLEAN DEFAULT true,
+                fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        
+        console.log('✅ Tabla "libros" verificada/creada');
+        
+        // Verificar si hay datos
+        const result = await client.query('SELECT COUNT(*) FROM libros');
+        const count = parseInt(result.rows[0].count);
+        
+        if (count === 0) {
+            console.log('📚 Base de datos vacía, insertando libros de ejemplo...');
+            
+            await client.query(`
+                INSERT INTO libros (titulo, autor, año, genero, isbn, disponible) VALUES
+                ('Cien años de soledad', 'Gabriel García Márquez', 1967, 'Ficción', '978-0307474728', true),
+                ('Don Quijote de la Mancha', 'Miguel de Cervantes', 1605, 'Clásico', '978-8424936464', true),
+                ('1984', 'George Orwell', 1949, 'Ciencia Ficción', '978-0451524935', false),
+                ('El Principito', 'Antoine de Saint-Exupéry', 1943, 'Infantil', '978-0156012195', true)
+            `);
+            
+            console.log('✅ Libros de ejemplo insertados correctamente');
+        } else {
+            console.log(`ℹ️  Base de datos contiene ${count} libro(s)`);
+        }
+        
+        console.log('✅ Base de datos inicializada exitosamente');
+        
+    } catch (error) {
+        console.error('❌ Error al inicializar base de datos:', error);
+        throw error;
+    } finally {
+        client.release();
     }
-});
+}
 
+// Ejecutar inicialización al arrancar
+initializeDatabase().catch(err => {
+    console.error('💥 Error fatal en inicialización:', err);
+    process.exit(1);
+});
 // Configurar Multer para subida de archivos (en memoria)
 const storage = multer.memoryStorage();
 const upload = multer({ 
