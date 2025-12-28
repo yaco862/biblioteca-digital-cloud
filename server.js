@@ -16,20 +16,26 @@ console.log(`🌍 Entorno: ${ENVIRONMENT}`);
 console.log(`📊 Usando tabla: ${TABLE_NAME}`);
 
 // Configurar PostgreSQL
+console.log("🔧 Configuración de base de datos:");
+console.log("NODE_ENV:", process.env.NODE_ENV);
+console.log("DATABASE_URL definida:", !!process.env.DATABASE_URL);
+if (process.env.DATABASE_URL) {
+    console.log("Longitud de DATABASE_URL:", process.env.DATABASE_URL.length);
+    // Mostrar solo los primeros y últimos caracteres por seguridad
+    const url = process.env.DATABASE_URL;
+    console.log("URL (seguro):", url.substring(0, 20) + "..." + url.substring(url.length - 10));
+});
+// Configurar PostgreSQL
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: {
         rejectUnauthorized: false
     }
 });
-// Verificar conexión a la base de datos
-pool.connect((err, client, release) => {
-    if (err) {
-        console.error('❌ Error al conectar con PostgreSQL:', err.stack);
-    } else {
-        console.log('✅ Conectado a PostgreSQL exitosamente');
-        release();
-    }
+
+if (!process.env.DATABASE_URL) {
+    console.error("❌ ERROR: DATABASE_URL no está definida");
+    console.log("Variables de entorno disponibles:", Object.keys(process.env));
 });
 
 // Configurar Multer para subida de archivos (simulado - en memoria)
