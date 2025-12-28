@@ -1,3 +1,4 @@
+//versión 2.1 - Entornos múltiples configurados
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
